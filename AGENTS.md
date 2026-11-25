@@ -31,6 +31,17 @@
 - 含 options 或 confirm 的视图放在回复最后，然后结束这一轮；用户的选择会以一条 "[dsh-ui reply]" 开头的消息发回来（如「选择：方案 A」「确认：开始」；自己填的另起一行「其他：…」）。只问一个简单问题时用 ask_user_question。
 - 不要用视图收集密码、密钥或验证码。
 
+## 模型路由（任何模型/新对话强制生效）
+
+- 模型清单唯一事实来源：`/root/.dsh/profiles/web/cordis.patch.yml`（llm-pi-ai.providers）、`/root/.dsh/our-free-model/catalog.json`（免费池 kiloRows / sealIds）、`/root/.dsh/our-free-model/availability.json`（可用性）；密钥键名见 `/root/.dsh/.credentials.yaml` 的 refs。新增/改动模型只改这些文件，不在规则里硬编码密钥。
+- 任何模型、任何新对话，收到用户消息后第一步先读本文件 `/root/.dsh/AGENTS.md`，再按下面路由选模型，最后回复；不得跳过。
+- 图片/截图/视觉理解：默认走视觉模型。优先 `nemotron-3.5-super-vl-free`（免费池，`vision:true`）；失败或需更强理解时按序切 `Kilo Ling 3.2 Flash`、`Kilo Particle-1`、`Kilo OpenRouter Free`、`doubao-seed-evolving`、`gemini-3.8-flash`、`glm-5.3-flash` 等带 vision/GUI 能力的模型。本机读图流程仍按「看图/看视频」段的 modlens → 多模态链 → OCR，不空口猜。
+- 视频理解/生成：视频分析用 `hy-video-v1.5`、`doubao-seed-evolving`、`gui-plus`、`tongyi-xiaomi-analysis-*`；视频生成按需求选 `kling-video-*`、`minimax-video-*`、`pixverse-video-*`、`vidu-video-*`、`wand-vega-video-*`。
+- 图像生成：`hy-image-v3`、`hy-image-v3.5-preview`、`seedream-image-*`、`gpt-image-2*`、`nano-banana*`、`midjourney-*`、`kling-image-*`、`vidu-image-q2`、`wand-vega-image-*`。
+- 群主共享（custom-114-28-145-65）：`hy4flash-free`、`deepseek-flash-1017`；小力孩（custom-ygxnhzy）：`DeepSeek-V4.1-Flash 小力孩AI`、`MiniMax-M3`、`Kimi-K2.6/K2.7-Code/K3`、`GLM-5.3`；肖恩（custom-go-toter）：Claude/Gemini/DeepSeek-V4.1-Flash/入梦 Flash；未完（custom-weiwan）：`gemini-3.8-flash`、`deepseek-v4.1-flash(-1017)`；魔塔社区：`deepseek-ai/DeepSeek-V4-Pro-0813` 等；亿寻：`deepseek-v4.1-flash-free`。
+- 免费池状态以 `availability.json` 为准；`state=region-blocked` / `throttled` / `stale` 的模型降权或跳过。切换模型只在当前任务内降级，不重启引擎、不改 provider 配置。
+- 模型只是执行工具：任何模型都受本文件全部规则约束，包括「上传必须用户明确同意」。
+
 ## 本机诊断
 
 - 用户报障（卡顿、发热、连不上、更新失败、闪退、插件不生效、手机操控失败）时，读取可用诊断：用户刚主动发布时优先读同目录的 `diagnostics-manual.md`，否则先读自动快照 `$DSH_HOME/dsh-app/diagnostics.md`。核对报告时间、版本和设备，再分析引擎状态、连接方式、性能与有限日志；有一份可用就不要因另一份缺失反复要求刷新，读取前不用另问。
@@ -100,7 +111,8 @@
 3. 覆盖 Android 编译/反编译、Root、LSPosed、系统级应用开发场景。
 4. 新建或改编 App/模块时，提醒一次是否需要设计图标。
 5. 提到包名必须附应用名：`包名（应用名）`。包名用 `pm list packages | grep` 核实，应用名用 `pm path` 取 APK 后 `aapt dump badging | grep application-label` 解析；一律实测，禁止凭记忆、简称或推测填写。
-6. 用户发送「1」即为模型测试信号，只回复「2」，不展开其它内容、不调用工具。
+6. 用户发送「1」时只回复「收到」，不展开其它内容、不调用工具。
+7. 用户只回复单个数字时的意图：「2」＝继续，「3」＝上传到 GitHub，「4」＝取消，「5」＝确定，「6」＝同时上传到 GitHub 和 npm；据此执行，不再重复询问。
 
 二、工作流【强制】
 
