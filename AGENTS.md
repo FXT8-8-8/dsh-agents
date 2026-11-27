@@ -224,10 +224,11 @@ modern（libxposed）通道的三条硬约束，实测得出：
 8. 模拟点击/滑动优先用 `input tap x y`、`input swipe x1 y1 x2 y2 d`，经 root 桥或 shell 直接执行，不依赖无障碍服务；坐标取不到时按「uiautomator dump 失败 → screencap + tesseract tsv 算文字标签 bbox 中心」走。
 9. 无障碍只在需要持续监听界面事件或读控件树时才开：`settings put secure enabled_accessibility_services <包名>/<服务>` 加 `accessibility_enabled 1`，用完置 0 并清空列表；开启期间银行、支付类 App 可能检测无障碍并拒绝运行。
 10. 安装/覆盖系统应用（含 user 版 SystemUI 插件）的确认与自动回退【强制】：
-    - 自动回滚机制【强制，无需再确认】：凡执行系统应用 `pm install`，装前自动开启回滚机制——记录原包路径与版本（`pm path <包名>`、`dumpsys package <包名> | grep versionName`）、原始 APK 备份到 `/data/local/tmp/<包名>_orig.apk`，并生成回滚脚本 `/data/local/tmp/<包名>_rollback.sh`（内容：`pm uninstall <包名>`；user 版基线用 uninstall 恢复内置版本，系统分区改动按备份原样恢复）。装后观测判定异常时直接执行该脚本回退，不再询问；安装判定成功后删除回滚脚本与备份。
+    - 自动回滚机制【强制，无需再确认】：凡执行系统应用 `pm install`，装前自动开启回滚机制——记录原包路径与版本（`pm path <包名>`、`dumpsys package <包名> | grep versionName`）、原始 APK 备份到 `/data/adb/dsh_sysapp_guard/<包名>_orig.apk`，并生成回滚脚本 `/data/adb/dsh_sysapp_guard/<包名>_rollback.sh`（内容：`pm uninstall <包名>`；user 版基线用 uninstall 恢复内置版本，系统分区改动按备份原样恢复）。装后观测判定异常时直接执行该脚本回退，不再询问。
+    - 一键流程：`sh /data/adb/dsh_sysapp_guard/install_sysapp.sh <包名> <apk路径> [观测秒数=300]`，自动完成备份→生成回滚脚本→`pm install -r -d`→用 `setsid` 起限时看门狗（窗口结束自行退出，不常驻）；看门狗连续 2 次判到 SystemUI 进程缺失或新增 FATAL 即自动执行回滚。停止：`touch /data/adb/dsh_sysapp_guard/cc_guard.stop`。脚本与日志在保护清单内，除用户点名外不清理；原包备份 `<包名>_orig.apk` 只在安装窗口内应急用，观测四次全过、用户确认界面正常后即删，不留存占空间。回滚主手段是 `pm uninstall <包名>` 恢复内置基线。
     - 安装确认（仅系统应用）：本条确认门槛只针对系统应用（含 user 版 SystemUI 插件、框架/服务类），普通第三方用户应用不受此限。系统应用安装/卸载属高危（见本条风险分级），即便在调试连续过程中，每次 `pm install` 前都要单独确认；「开始编程」「改成XX」「继续」这类话不等于授权装系统应用，只有用户明确说「帮我装」「安装」或独立确认才执行。默认只打包不装系统应用。
     - 单变量：每次装包只验证一个改动变量；多项改动要拆成多次装包，禁止一次改多处后直接装（出问题无法定位、回退代价大）。
-    - 装前记录：原包路径与版本（`pm path <包名>`、`dumpsys package <包名> | grep versionName`）、原始 APK 备份到 `/data/local/tmp/<包名>_orig.apk`；注意备份的是 user 版时不能当系统基线，真正回退动作是 `pm uninstall <包名>` 恢复内置版本。
+    - 装前记录：原包路径与版本（`pm path <包名>`、`dumpsys package <包名> | grep versionName`）、原始 APK 备份到 `/data/adb/dsh_sysapp_guard/<包名>_orig.apk`；注意备份的是 user 版时不能当系统基线，真正回退动作是 `pm uninstall <包名>` 恢复内置版本。待装 APK 仍需先 `cp` 到 `/data/local/tmp` 再 `pm install`（`/data/adb` 是 700 root:root，`system_server` 读不到），装完即删该中转副本。
     - 装后观测：`pm install -r -d` 成功后，在 0/5/10/15 秒共检查四次，每次用 root 桥一次性取：`ps -A | grep <系统进程名>`（进程必须持续存活）、`logcat -d -t 500 | grep -iE "FATAL|AndroidRuntime"`（必须无新增崩溃）、`dumpsys window | grep mCurrentFocus`（焦点不得异常/空）、`dumpsys display | grep -i mScreenState`（辅助）。
     - 判定：主判据是「系统进程存活 + 无 FATAL 崩溃 + 焦点正常」；`mScreenState=OFF` 只是辅证，禁止单凭它判定黑屏，也禁止用「可能是锁屏/Doze」单方面豁免进程消失或崩溃——锁屏状态下进程仍应在、且无 FATAL。任一主判据异常，立即 `pm uninstall <包名>` 回退到系统基线，报告异常原始值（进程、logcat、焦点、屏幕）和已回退；四次全过才判定成功，反馈正常并让用户确认界面效果。
     - 回退只用 root 桥执行，失败原样报错不猜路径；不允许在判据矛盾时「先观察」或咨询用户而不回退。
@@ -297,6 +298,7 @@ modern（libxposed）通道的三条硬约束，实测得出：
 - `/opt/dsh`（引擎本体）
 - `/root/.dsh/AGENTS.md`（唯一规则文件）、`/root/.dsh/prompt-inject.md`
 - `~/rootctl`（root 桥通道）
+- `/data/adb/dsh_sysapp_guard`（系统应用安装守卫工具：`install_sysapp.sh`、`cc_guard.sh` 看门狗、`<包名>_rollback.sh`、`cc_guard.log`；装系统应用时按需启动，窗口结束自行退出。除用户明确点名删除外永不清理。该目录只长期保留脚本与日志，原包备份 `<包名>_orig.apk` 属于安装期临时文件，观测通过后即删，不留存）
 - `/sdcard` 下用户自己的文件与日志；只删本会话生成的项目目录，且用户点名才删整个目录
 
 执行方式：先把要删的顶层路径打印出来，再删；不逐条确认，只有命中保护清单时才停下问。
