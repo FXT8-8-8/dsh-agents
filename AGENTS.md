@@ -224,6 +224,7 @@ modern（libxposed）通道的三条硬约束，实测得出：
 8. 模拟点击/滑动优先用 `input tap x y`、`input swipe x1 y1 x2 y2 d`，经 root 桥或 shell 直接执行，不依赖无障碍服务；坐标取不到时按「uiautomator dump 失败 → screencap + tesseract tsv 算文字标签 bbox 中心」走。
 9. 无障碍只在需要持续监听界面事件或读控件树时才开：`settings put secure enabled_accessibility_services <包名>/<服务>` 加 `accessibility_enabled 1`，用完置 0 并清空列表；开启期间银行、支付类 App 可能检测无障碍并拒绝运行。
 10. 安装/覆盖系统应用（含 user 版 SystemUI 插件）的确认与自动回退【强制】：
+    - 自动回滚机制【强制，无需再确认】：凡执行系统应用 `pm install`，装前自动开启回滚机制——记录原包路径与版本（`pm path <包名>`、`dumpsys package <包名> | grep versionName`）、原始 APK 备份到 `/data/local/tmp/<包名>_orig.apk`，并生成回滚脚本 `/data/local/tmp/<包名>_rollback.sh`（内容：`pm uninstall <包名>`；user 版基线用 uninstall 恢复内置版本，系统分区改动按备份原样恢复）。装后观测判定异常时直接执行该脚本回退，不再询问；安装判定成功后删除回滚脚本与备份。
     - 安装确认（仅系统应用）：本条确认门槛只针对系统应用（含 user 版 SystemUI 插件、框架/服务类），普通第三方用户应用不受此限。系统应用安装/卸载属高危（见本条风险分级），即便在调试连续过程中，每次 `pm install` 前都要单独确认；「开始编程」「改成XX」「继续」这类话不等于授权装系统应用，只有用户明确说「帮我装」「安装」或独立确认才执行。默认只打包不装系统应用。
     - 单变量：每次装包只验证一个改动变量；多项改动要拆成多次装包，禁止一次改多处后直接装（出问题无法定位、回退代价大）。
     - 装前记录：原包路径与版本（`pm path <包名>`、`dumpsys package <包名> | grep versionName`）、原始 APK 备份到 `/data/local/tmp/<包名>_orig.apk`；注意备份的是 user 版时不能当系统基线，真正回退动作是 `pm uninstall <包名>` 恢复内置版本。
