@@ -11,7 +11,7 @@
 
 - 你运行在 Android 手机上的 Ubuntu 24.04 环境里（proot，免 Root）。这里没有可用的沙箱后端（bubblewrap / Landlock 都不可用），`workspace-write` 沙箱模式一定会被拒绝。
 - 需要执行 bash 命令时，直接用 `sandbox_permissions: "danger-full-access"` 申请运行，并用一句话写明理由；不要先试沙箱模式。
-- 默认工作目录是 `/root/workspace`。用户已授权访问手机存储：手机内部存储挂载在 `/sdcard`（`/root/手机存储` 是它的快捷方式；相册在 `/sdcard/DCIM`，下载在 `/sdcard/Download`）。改动或删除用户文件前先说明并确认；给用户的产出文件放到 `/sdcard/Download/DSH-Go/`。
+- 默认工作目录是 `/sdcard/Download/DSH-Go/`（即 `/storage/emulated/0/Download/DSH-Go/`，同一目录）。**所有项目文件（源码、样本、反编译中间产物、构建产物、交付物）强制只在这里产生**；`/root/workspace` 仅作工具与一次性临时中转（`tools/`、OCR 临时文件），禁止在它下面新建或存放项目目录。用户已授权访问手机存储：`/sdcard`（`/root/手机存储` 是快捷方式；相册在 `/sdcard/DCIM`，下载在 `/sdcard/Download`）。改动或删除用户文件前先说明并确认。
 
 - 已预装 node / npm / pnpm、python3 / pip、git；npm 和 pnpm 默认用国内镜像 registry.npmmirror.com。缺别的工具可以 `apt-get update && apt-get install -y <包名>`（需要联网）。
 - 手机屏幕小：回复尽量简洁，代码块不要太宽；用用户使用的语言回答。
@@ -42,12 +42,13 @@
 ## 模型路由（任何模型/新对话强制生效）
 
 - 模型清单唯一事实来源：`/root/.dsh/profiles/web/cordis.patch.yml`（llm-pi-ai.providers）、`/root/.dsh/our-free-model/catalog.json`（免费池 kiloRows / sealIds）、`/root/.dsh/our-free-model/availability.json`（可用性）；密钥键名见 `/root/.dsh/.credentials.yaml` 的 refs。新增/改动模型只改这些文件，不在规则里硬编码密钥。
+- 路由选择第一原则：**只在事实来源里挑模型**——provider 清单（llm-pi-ai.providers）与免费池清单（catalog.json kiloRows/sealIds/entries）里找不到的 id 一律不选；规则里点名的模型仅作优先级提示，名字对不上真实 id 时以清单为准。真实 id 全表：provider 有 `DeepSeek-V4-Flash`（默认，amd）、`hy4flash-free`、`deepseek-flash-1017`、`gemini-3.8-flash`、`deepseek-v4.1-flash(-1017)`、`GLM-5.3-Flash`、`Hy4-flash`、`MiMo-V2.6-Flash`、`Qwen3.8-27B`、`gpt-5.6-luna`、`gpt-6.1-sol`、`grok-4.7`、`particle-1`、`deepseek-chat`、`Agents-A1`、`Atria-Dawn-Preview`、`glm-5.3`、`intern-s2`、`kimi-k3.1-pro`、`bailu-2.7-free`、`bailu-2.8`、`z-ai/glm-5.3-flash`、`qwen/qwen3.7-flash`、`qiniu/conatus-free`、`doubao-seed-evolving`、`glm-5-3-flash-260828`、`MiniMax-M3.1-Flash`、`Hy4-Flash`、`deepseek-ai/DeepSeek-V4.1-Flash` 等；免费池 kiloRows 有 `kilo-auto/free`（Kilo Auto Free，长上下文+推理）、`nvidia/nemotron-3.5-super-vl:free`（Kilo Nemotron 3.5 Super VL，视觉+长上下文）、`openrouter/free`（Kilo OpenRouter Free，视觉）、`reflection/beam-free`、`nvidia/nemotron-3.5-lightning:free`、`nvidia/nemotron-3-ultra-550b-a55b:free`、`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`、`particle-ai/particle-1:free`、`baidu/ernie-5.5-flash-preview:free`、`liquid/lfm-3-1.7b:free`、`recursive/flint-v1.0:free`、`stealth/glyph-cluster`、`deepseek-v4.1-flash-free`、`glm-5.3-flash-free`、`mimo-v2.6-flash-free`、`hy4-flash-free`、`nemotron-3.5-lightning-free`、`nemotron-3.5-super-vl-free`、`seaglass-alpha-free`、`tidepool-alpha-free`、`big-pickle`、`iceman-free`、`flint-40b-free`。
 - 任何模型、任何新对话，收到用户消息后第一步先读本文件 `/root/.dsh/AGENTS.md`，再按下面路由选模型，最后回复；不得跳过。
-- 图片/截图/视觉理解：默认走视觉模型。优先 `nemotron-3.5-super-vl-free`（免费池，`vision:true`）；失败或需更强理解时按序切 `Kilo Ling 3.2 Flash`、`Kilo Particle-1`、`Kilo OpenRouter Free`、`doubao-seed-evolving`、`gemini-3.8-flash`、`glm-5.3-flash` 等带 vision/GUI 能力的模型。本机读图流程仍按「看图/看视频」段的 modlens → 多模态链 → OCR，不空口猜。
+- 图片/截图/视觉理解：默认走视觉模型。优先 `nemotron-3.5-super-vl-free`（免费池，`vision:true`）；失败或需更强理解时按序切 `particle-ai/particle-1:free`（Kilo Particle-1，视觉）、`openrouter/free`（Kilo OpenRouter Free，视觉）、`doubao-seed-evolving`、`gemini-3.8-flash`、`glm-5-3-flash-260828` 等带 vision/GUI 能力的模型。本机读图流程仍按「看图/看视频」段的 modlens → 多模态链 → OCR，不空口猜。
 - 视频理解/生成：视频分析用 `hy-video-v1.5`、`doubao-seed-evolving`、`gui-plus`、`tongyi-xiaomi-analysis-*`；视频生成按需求选 `kling-video-*`、`minimax-video-*`、`pixverse-video-*`、`vidu-video-*`、`wand-vega-video-*`。
 - 图像生成：`hy-image-v3`、`hy-image-v3.5-preview`、`seedream-image-*`、`gpt-image-2*`、`nano-banana*`、`midjourney-*`、`kling-image-*`、`vidu-image-q2`、`wand-vega-image-*`。
-- 群主共享（custom-114-28-145-65）：`hy4flash-free`、`deepseek-flash-1017`；小力孩（custom-ygxnhzy）：`DeepSeek-V4.1-Flash 小力孩AI`、`MiniMax-M3`、`Kimi-K2.6/K2.7-Code/K3`、`GLM-5.3`；肖恩（custom-go-toter）：Claude/Gemini/DeepSeek-V4.1-Flash/入梦 Flash；未完（custom-weiwan）：`gemini-3.8-flash`、`deepseek-v4.1-flash(-1017)`；魔塔社区：`deepseek-ai/DeepSeek-V4-Pro-0813` 等；亿寻：`deepseek-v4.1-flash-free`。
-- 免费池状态以 `availability.json` 为准；`state=region-blocked` / `throttled` / `stale` 的模型降权或跳过。切换模型只在当前任务内降级，不重启引擎、不改 provider 配置。
+- 群主共享（custom-114-28-145-65）：`hy4flash-free`、`deepseek-flash-1017`；小力孩（custom-ygxnhzy）：`DeepSeek-V4.1-Flash 小力孩AI`、`MiniMax-M3`、`Kimi-K2.6/K2.7-Code/K3`、`GLM-5.3`；肖恩（custom-go-toter）：Claude/Gemini/DeepSeek-V4.1-Flash/入梦 Flash；未完（custom-weiwan）：`gemini-3.8-flash`、`deepseek-v4.1-flash(-1017)`；魔塔社区：`deepseek-ai/DeepSeek-V4.1-Flash-1017` 等；亿寻：`deepseek-v4.1-flash-free`。
+- 免费池状态以 `availability.json` 为准；`state=region-blocked` / `throttled` / `stale` 的模型降权或跳过，`lane.state=quota`（额度已尽）时整条免费车道跳过、直接走 provider 清单里的模型。切换模型只在当前任务内降级，不重启引擎、不改 provider 配置。
 - 模型只是执行工具：任何模型都受本文件全部规则约束，包括「上传必须用户明确同意」。
 
 ## 本机诊断
@@ -238,7 +239,7 @@ modern（libxposed）通道的三条硬约束，实测得出：
 
 九、文件与产物管理
 
-1. 产物根目录固定 `/sdcard/Download/DSH-Go/`，每个项目一个中文应用名目录，内含 `安装包/`、`文档/`、`分析数据/`。
+1. **所有项目文件强制落在 `/sdcard/Download/DSH-Go/`**（= `/storage/emulated/0/Download/DSH-Go/`）：源码、样本、反编译中间产物、构建产物、交付物一律进对应项目目录，不得写入 `/root/workspace` 或引擎私有目录（防止再涨到 10G）。每个项目一个中文应用名目录，内含 `安装包/`、`文档/`、`分析数据/`。
 2. 编译依赖统一放 `工具与归档/编译依赖/`；一次性诊断与历史产物放 `工具与归档/历史归档/`；两者都不进项目目录。
 3. build.sh 必须 `. "$(dirname "$0")/../tools/paths.sh"` 后用 `OUTDIR=$(PROJ_OUT 应用名)` 取路径；禁止硬编码 `/sdcard/Download`，改路径只改 `paths.sh`。`/sdcard` 不支持软链，禁止用链接做路径兼容。
 4. 新项目并入前先定中文目录名；同一应用的新旧版本共用同一目录，不新建目录。
@@ -268,6 +269,14 @@ modern（libxposed）通道的三条硬约束，实测得出：
 - 直接代管：读写代码、提交推送、建删仓库、管项目，不用再问 token
 - 每次生成或修改规则后，都要询问用户是否将最新的 `/root/.dsh/AGENTS.md` 上传到 GitHub；用户确认后再上传
 - 任何文件上传到 GitHub 或其他云端并核验成功后，立即删除本机为上传生成的规则备份、压缩包、暂存目录和临时副本，只保留原始文件，不留上传缓存占用空间；`/root/.dsh/AGENTS.md` 原件始终保留
+
+## 项目位置（已迁移）
+
+- 所有项目已按规则九迁至 `/sdcard/Download/DSH-Go/`，`/root/workspace` 不再存放项目目录。
+- OurPlay VIP（Xposed 模块，包名 com.yg.ourplayvip）项目位置：`/sdcard/Download/DSH-Go/OurPlayVIP/工程源码/`。其 `build.sh` 的 `BASE` 已同步改为该路径。构建：`sh /sdcard/Download/DSH-Go/OurPlayVIP/工程源码/build.sh`。
+- **文件存放分类标准【强制】**：
+  - **工具/服务类**（长期使用、运行中依赖、带自身数据）：留在 `/root/workspace` 或系统路径，如 `tools/`、`model-gateway`（OpenAI 兼容模型网关服务，含 gateway.db 账号数据）。
+  - **项目类**（做完可删、一次性交付、逆向/构建产物）：强制放 `/sdcard/Download/DSH-Go/<应用名>/`，交付后即可清理，不留 workspace。
 
 ## dsh-go 插件
 
